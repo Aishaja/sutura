@@ -81,10 +81,27 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const money = n => SITE.currency + Number(n).toLocaleString("en-US");
 const wa = msg => `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(msg)}`;
+/** Live dress list: starts as DRESSES, replaced when Firestore has data */
+let catalog = DRESSES.map(d => ({ ...d }));
+
 const minOf = key => {
-  const v = DRESSES.map(d => d[key]).filter(Boolean);
+  const v = catalog.map(d => d[key]).filter(Boolean);
   return v.length ? Math.min(...v) : null;
 };
+
+async function syncCatalogFromFirebase() {
+  const api = window.SuturaFirebase;
+  if (!api?.loadDresses) return;
+  try {
+    const remote = await api.loadDresses();
+    if (remote?.length) {
+      catalog = remote;
+      renderGrid();
+    }
+  } catch (err) {
+    console.warn("Could not load dresses from Firebase:", err);
+  }
+}
 
 /* ---------- Dress drawings (used when a dress has no photo) ---------- */
 const SHAPES = {
@@ -130,12 +147,17 @@ $$("[data-site]").forEach(el => { el.textContent = SITE[el.dataset.site] ?? ""; 
 $$("[data-wa]").forEach(a => { a.href = wa(a.dataset.wa); a.target = "_blank"; a.rel = "noopener"; });
 document.title = `${SITE.brand}: rent, buy or have a dress sewn`;
 $("#year").textContent = "\u00A9 " + new Date().getFullYear();
-$("#sewPrice").textContent = "From " + money(SITE.sewFrom);
-$("#sewTime").textContent = SITE.sewTime;
+const sewPrice = $("#sewPrice"), sewTime = $("#sewTime");
+if (sewPrice) sewPrice.textContent = "From " + money(SITE.sewFrom);
+if (sewTime) sewTime.textContent = SITE.sewTime;
 const ig = $("#igLink");
-if (SITE.instagram) { ig.href = "https://instagram.com/" + SITE.instagram; ig.textContent = "@" + SITE.instagram; }
-else { ig.closest("div").style.display = "none"; }
-const ml = $("#mailLink"); ml.href = "mailto:" + SITE.email; ml.textContent = SITE.email;
+if (ig) {
+  if (SITE.instagram) { ig.href = "https://instagram.com/" + SITE.instagram; ig.textContent = "@" + SITE.instagram; }
+  else { ig.closest("div").style.display = "none"; }
+}
+const ml = $("#mailLink");
+if (ml) { ml.href = "mailto:" + SITE.email; ml.textContent = SITE.email; }
+if ($("#grid")) document.title = `${SITE.brand}: dresses to rent & sale`;
 
 /* ---------- Hero rail ---------- */
 const HERO = [
@@ -143,12 +165,15 @@ const HERO = [
   { key: "buy",  tab: "Buy",        sub: "Take it home and keep it",               d: { shape: "mermaid", tone: "rose"  } },
   { key: "sew",  tab: "Sew for me", sub: "Made to your measurements",              d: { shape: "aline",   tone: "brass" } }
 ];
-$("#rail").innerHTML = HERO.map((h, i) => `
+const rail = $("#rail");
+if (rail) {
+  rail.innerHTML = HERO.map((h, i) => `
   <a class="hung" href="#how" data-tab="${h.key}" style="--i:${i}">
     ${dressSVG(h.d, { hanger: true })}
     <span class="tag">${h.tab}</span>
     <small>${h.sub}</small>
   </a>`).join("");
+}
 
 /* ---------- How it works ---------- */
 const minRent = minOf("rent"), minBuy = minOf("buy");
@@ -157,7 +182,7 @@ const WAYS = [
     title: `Wear a gown for ${SITE.rentDays} days`,
     summary: "Look wonderful at a wedding, a party or a photo shoot without buying a dress you'll wear once.",
     price: minRent ? `Rentals from ${money(minRent)}` : "",
-    cta: { text: "Browse dresses to rent", href: "#collection", filter: "rent" },
+    cta: { text: "Browse dresses to rent", href: "dresses.html?filter=rent" },
     steps: [
       ["Choose your dress", "Browse the collection and tap Rent this dress."],
       ["Send your date and size", "We check the dress is free on your date and arrange a fitting."],
@@ -168,7 +193,7 @@ const WAYS = [
     title: "Find a dress and keep it",
     summary: "Fall in love with a dress and make it yours, ready to wear again and again.",
     price: minBuy ? `Dresses for sale from ${money(minBuy)}` : "",
-    cta: { text: "Browse dresses for sale", href: "#collection", filter: "buy" },
+    cta: { text: "Browse dresses for sale", href: "dresses.html?filter=buy" },
     steps: [
       ["Choose your dress", "Browse the collection and tap Buy this dress."],
       ["Check the size", "Come in for a fitting, or send us your measurements."],
@@ -188,47 +213,52 @@ const WAYS = [
     ] }
 ];
 
-$("#tabs").innerHTML = WAYS.map((w, i) => `
+const tabsEl = $("#tabs"), panelsEl = $("#panels");
+if (tabsEl && panelsEl) {
+  tabsEl.innerHTML = WAYS.map((w, i) => `
   <button class="tab" role="tab" id="tab-${w.key}" data-tab="${w.key}" aria-controls="panel-${w.key}"
     aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}">
     <span>${w.tab}</span><small>${w.tabSub}</small>
   </button>`).join("");
 
-$("#panels").innerHTML = WAYS.map((w, i) => `
+  panelsEl.innerHTML = WAYS.map((w, i) => `
   <div class="panel" role="tabpanel" id="panel-${w.key}" aria-labelledby="tab-${w.key}" data-key="${w.key}" ${i === 0 ? "" : "hidden"}>
     <div>
       <h3>${esc(w.title)}</h3>
       <p class="summary">${esc(w.summary)}</p>
       ${w.price ? `<p class="pricetag">${esc(w.price)}</p>` : ""}
-      <a class="btn btn-primary" href="${w.cta.href}" ${w.cta.filter ? `data-filter="${w.cta.filter}"` : ""}>${esc(w.cta.text)}</a>
+      <a class="btn btn-primary" href="${w.cta.href}">${esc(w.cta.text)}</a>
     </div>
     <ol class="steps">
       ${w.steps.map((s, n) => `<li><span class="n">${n + 1}</span><div><h4>${esc(s[0])}</h4><p>${esc(s[1])}</p></div></li>`).join("")}
     </ol>
   </div>`).join("");
 
-function setTab(key, focus) {
-  $$('[role="tab"]').forEach(t => {
-    const on = t.dataset.tab === key;
-    t.setAttribute("aria-selected", on);
-    t.tabIndex = on ? 0 : -1;
-    if (on && focus) t.focus();
+  function setTab(key, focus) {
+    $$('[role="tab"]').forEach(t => {
+      const on = t.dataset.tab === key;
+      t.setAttribute("aria-selected", on);
+      t.tabIndex = on ? 0 : -1;
+      if (on && focus) t.focus();
+    });
+    $$('[role="tabpanel"]').forEach(p => { p.hidden = p.dataset.key !== key; });
+  }
+  tabsEl.addEventListener("click", e => {
+    const t = e.target.closest("[data-tab]"); if (t) setTab(t.dataset.tab);
   });
-  $$('[role="tabpanel"]').forEach(p => { p.hidden = p.dataset.key !== key; });
+  tabsEl.addEventListener("keydown", e => {
+    const keys = WAYS.map(w => w.key);
+    const cur = keys.indexOf(document.activeElement.dataset.tab);
+    if (cur < 0) return;
+    if (e.key === "ArrowRight") { e.preventDefault(); setTab(keys[(cur + 1) % keys.length], true); }
+    if (e.key === "ArrowLeft")  { e.preventDefault(); setTab(keys[(cur + keys.length - 1) % keys.length], true); }
+  });
+  if (rail) {
+    rail.addEventListener("click", e => {
+      const t = e.target.closest("[data-tab]"); if (t) setTab(t.dataset.tab);
+    });
+  }
 }
-$("#tabs").addEventListener("click", e => {
-  const t = e.target.closest("[data-tab]"); if (t) setTab(t.dataset.tab);
-});
-$("#tabs").addEventListener("keydown", e => {
-  const keys = WAYS.map(w => w.key);
-  const cur = keys.indexOf(document.activeElement.dataset.tab);
-  if (cur < 0) return;
-  if (e.key === "ArrowRight") { e.preventDefault(); setTab(keys[(cur + 1) % keys.length], true); }
-  if (e.key === "ArrowLeft")  { e.preventDefault(); setTab(keys[(cur + keys.length - 1) % keys.length], true); }
-});
-$("#rail").addEventListener("click", e => {
-  const t = e.target.closest("[data-tab]"); if (t) setTab(t.dataset.tab);
-});
 
 /* ---------- Collection ---------- */
 let filter = "all";
@@ -254,9 +284,11 @@ function card(d) {
   </article>`;
 }
 function renderGrid() {
-  const list = DRESSES.filter(d => filter === "all" || (filter === "rent" && d.rent) || (filter === "buy" && d.buy));
-  $("#count").textContent = `Showing ${list.length} ${list.length === 1 ? "dress" : "dresses"}`;
-  $("#grid").innerHTML = list.length
+  const grid = $("#grid"), countEl = $("#count");
+  if (!grid) return;
+  const list = catalog.filter(d => filter === "all" || (filter === "rent" && d.rent) || (filter === "buy" && d.buy));
+  if (countEl) countEl.textContent = `Showing ${list.length} ${list.length === 1 ? "dress" : "dresses"}`;
+  grid.innerHTML = list.length
     ? list.map(card).join("")
     : `<p class="empty">No dresses here yet. Message us and we'll help you find one.</p>`;
 }
@@ -266,13 +298,20 @@ function setFilter(f) {
   renderGrid();
 }
 document.addEventListener("click", e => {
-  const f = e.target.closest("[data-filter]");
-  if (f) setFilter(f.dataset.filter);
+  const chip = e.target.closest(".chip[data-filter]");
+  if (chip) setFilter(chip.dataset.filter);
 });
-renderGrid();
+if ($("#grid")) {
+  const q = new URLSearchParams(location.search).get("filter");
+  const fromUrl = q === "sale" ? "buy" : q;
+  if (fromUrl === "rent" || fromUrl === "buy") setFilter(fromUrl);
+  else renderGrid();
+  syncCatalogFromFirebase();
+}
 
 /* ---------- FAQ ---------- */
-$("#faqList").innerHTML = FAQ.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("");
+const faqList = $("#faqList");
+if (faqList) faqList.innerHTML = FAQ.map(([q, a]) => `<details><summary>${esc(q)}</summary><p>${esc(a)}</p></details>`).join("");
 
 /* ---------- Cart ---------- */
 let cart = [];

@@ -19,7 +19,7 @@
     </a>
     <nav class="nav" id="nav" aria-label="Main">
       <a href="#how">How it works</a>
-      <a href="#collection">Dresses</a>
+      <a href="dresses.html">Dresses</a>
       <a href="#sewing">Custom sewing</a>
       <a href="#faq">Questions</a>
       <a href="#contact">Contact</a>
@@ -45,7 +45,7 @@
         <h1 data-site="headline">Rent it, buy it, or have it sewn for you.</h1>
         <p class="lede" data-site="intro">Three ways to find your dress: borrow a gown for your big day, take one home for good, or have one made to your measurements.</p>
         <div class="cta-row">
-          <a class="btn btn-brass" href="#collection">See the dresses</a>
+          <a class="btn btn-brass" href="dresses.html">See the dresses</a>
           <a class="btn btn-outline" data-wa="Hello! I'd like help choosing a dress.">Message us on WhatsApp</a>
         </div>
         <p class="hint">Tap a tag on the rail to see how each option works.</p>
@@ -61,22 +61,6 @@
       <p class="section-lede">Choose the way that suits your event. Not sure which one? Message us and we'll help you decide.</p>
       <div class="tabs" role="tablist" aria-label="Ways to get your dress" id="tabs"></div>
       <div id="panels"></div>
-    </div>
-  </section>
-
-  <!-- COLLECTION -->
-  <section class="section surface" id="collection">
-    <div class="wrap">
-      <h2>The dresses</h2>
-      <p class="section-lede">Every dress can be rented, bought, or both. Prices are shown on each dress.</p>
-      <div class="filters" role="group" aria-label="Filter dresses">
-        <button class="chip" data-filter="all" aria-pressed="true">All dresses</button>
-        <button class="chip" data-filter="rent" aria-pressed="false">To rent</button>
-        <button class="chip" data-filter="buy" aria-pressed="false">For sale</button>
-      </div>
-      <p class="count" id="count" aria-live="polite"></p>
-      <div class="grid" id="grid"></div>
-      <p class="fine">The buttons open a WhatsApp chat with the dress name already typed, so you only need to add your date and size.</p>
     </div>
   </section>
 
@@ -172,6 +156,12 @@
   WhatsApp
 </a>
 
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/firebase.js"></script>
 <script src="js/script.js"></script>
 </body>
 </html>

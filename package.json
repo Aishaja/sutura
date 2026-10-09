@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "env": "node scripts/generate-env.mjs",
+    "dev": "npm run env && npx --yes serve .",
+    "postinstall": "npm run env"
+  },
+  "dependencies": {
+    "firebase": "^13.0.0"
+  }
+}

@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Public site: read published dresses only. Writes require signed-in admin (enable Auth later).
+    match /dresses/{dressId} {
+      allow read: if request.auth != null || resource.data.published != false;
+      allow create, update, delete: if request.auth != null;
+    }
+  }
+}
